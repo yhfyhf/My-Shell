@@ -2,6 +2,7 @@
 #define _USERNAME_HEADER
 
 
+#include <stdio.h>
 #include <pwd.h>
 
 char *get_username();

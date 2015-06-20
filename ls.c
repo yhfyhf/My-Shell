@@ -1,41 +1,54 @@
-#include <pwd.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/types.h>
-#include <dirent.h>
-#include <sys/stat.h>
 #include "ls.h"
 
-void do_ls(char dirname[]) {
+void do_ls(char dirname[], int a) {
     /*
      * list files in directory `dirname`
+     * a = 0, no option 'a'
+     * a = 1, option 'a', display dot files
      */
     DIR *dir_ptr;            // the directory
     struct dirent *direntp;  // each entry
 
-    if ((dir_ptr = opendir(dirname)) == NULL)
-        fprintf(stderr, "ls: cannot open %s\n", dirname);
+    if ((dir_ptr = opendir(dirname)) == NULL) {
+        fprintf(stderr, "ls: %s: No such file or directory\n", dirname);
+        exit(1);
+    }
     else {
+        int count = 0;
         while ((direntp = readdir(dir_ptr)) != NULL)
-            if (direntp->d_name[0] != '.')
-                printf("%s\n", direntp->d_name);
+            if ((a == 0 && direntp->d_name[0] != '.') || a == 1) {
+                printf("%-16s", direntp->d_name);
+                count++;
+                if (count % 4 == 0) {
+                    printf("\n");
+                }    
+            }
+        if (count % 4 != 0)
+            printf("\n");
         closedir(dir_ptr);
     }
 }
 
-void do_ls_al(char dirname[]) {
+void do_ls_l(char dirname[], int a) {
     /*
      * ls -al
      * list files in directory `dirname`
+     * a = 0, no option 'a'
+     * a = 1, option 'a', display dot files
      */
     DIR           *dir_ptr;  // the directory
     struct dirent *direntp;  // each entry
 
-    if ((dir_ptr = opendir(dirname)) == NULL)
+    int c = chdir(dirname);
+
+    if (c == -1 || (dir_ptr = opendir(dirname)) == NULL) {
         fprintf(stderr, "ls: cannot open %s\n", dirname);
+        exit(1);
+    }
     else {
         while ((direntp = readdir(dir_ptr)) != NULL) {
-            do_stat(direntp->d_name);
+            if ((a == 0 && direntp->d_name[0] != '.') || a == 1)
+                do_stat(direntp->d_name);
         }
         closedir(dir_ptr);
     }
@@ -128,4 +141,53 @@ char *gid_to_name(gid_t gid) {
     }
     else
         return grp_ptr->gr_name;
+}
+
+
+int main (int argc, char **argv) {
+    int opts[26] = {0};  // opts are -a, -l
+    int i;
+    char *dirs[10];
+
+    int dir_idx = 0;
+    int exist_opt = 0;   // used to mark whether there are options before dirs to listg
+
+    for (i = 1; i < argc; i++) {
+        if (exist_opt == 0 && argv[i][0] == '-') {
+            while (i < argc && argv[i][0] == '-') {
+                // parse options
+                int j;
+                for (j = 1; argv[i][j] != '\0'; j++) {
+                    opts[argv[i][j] - 'a'] = 1;
+                }
+                i++;
+            }
+            exist_opt = 1;
+            i--;
+        } else {
+            dirs[dir_idx++] = argv[i];
+            exist_opt = 1;
+        }
+    }
+
+    if (dir_idx == 0) {
+        dirs[dir_idx++] = ".";
+    }
+
+    for (i = 0; i < dir_idx; i++) {
+        if (i > 0) {
+            printf("\n");
+        }
+        if (dir_idx > 1) {
+            printf("%s:\n", dirs[i]);
+        }
+        if (opts['l'-'a'] == 0) {
+            do_ls(dirs[i], opts['a'-'a']);
+        } else if (opts['l'-'a'] == 1) {
+            do_ls_l(dirs[i], opts['a'-'a']);
+        } else {
+
+        }
+    }
+    return 0;
 }
